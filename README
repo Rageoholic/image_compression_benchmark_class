@@ -1,0 +1,7 @@
+This was run on an ubuntu 22.10 droplet with gcc. You can build using `make` in the root 
+directory of the project. You will need jpeglib installed and a C++17 compatible compiler.
+Additionally we make use of some inline assembly so if you want to compile under MSVC 
+you're going to need to find an equivalent for the escape function. This has only
+been run against one set of files so it's possible there exists files that will
+cause crashes. That said, it's all standard and I don't think there's any UB
+so it should be fine.
