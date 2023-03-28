@@ -36,7 +36,7 @@ struct CompressedImageSTBI
 
 extern "C" void stbi_writef(void *context, void *data, int size)
 {
-    std::vector<stbi_uc> target = *reinterpret_cast<std::vector<stbi_uc> *>(context);
+    std::vector<stbi_uc> &target = *reinterpret_cast<std::vector<stbi_uc> *>(context);
 
     // avoid excessive allocations by reserving up front
     target.reserve(target.size() + size);
@@ -152,8 +152,8 @@ int main(int argc, char **argv)
 
     auto file_list = collect_files_recursive(image_dir);
 
+    std::filesystem::remove_all("out");
     size_t i = 0;
-
     for (auto file : file_list)
     {
         std::ifstream filestream(file, std::ios::binary);
@@ -163,10 +163,12 @@ int main(int argc, char **argv)
         filestream.read((char *)contents.data(), contents.size());
         auto image = load_image_stbi(contents.data(), contents.size());
 
-        auto comp_levels = {1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+        auto comp_levels = {1, 10, 20, 30, 40};
 
         for (auto comp_level : comp_levels)
         {
+
+            //            fprintf(stderr, "working on comp_level %i for image %s\n", comp_level, file.c_str());
 
             auto tstart = std::chrono::high_resolution_clock::now();
 
@@ -177,22 +179,43 @@ int main(int argc, char **argv)
             auto tend = std::chrono::high_resolution_clock::now();
             auto tdiff = tend - tstart;
 
-            auto redecoded_image = load_image_stbi(compressed_image.data.data(), compressed_image.data.size());
+            auto out_path = path((path("out/stb") / std::to_string(comp_level) / file.parent_path() / file.stem()).string() + std::string(".jpg"));
 
-            auto mmd = CalculateMaximumMeansDifference(image, redecoded_image);
+            std::filesystem::create_directories(out_path.parent_path());
+
+            //          fprintf(stderr, "computed image, writing file\n");
+            auto f = fopen(out_path.string().c_str(), "wb");
+
+            fwrite(compressed_image.data.data(), compressed_image.data.size(), 1, f);
+            fclose(f);
 
             std::cout
-                << "stbi file: " << file << " comp_level: " << comp_level << " time: " << tdiff.count() << " mmd: " << mmd << '\n';
+                << "stbi file: " << file << " comp_level: " << comp_level << " time: " << tdiff.count() << '\n';
         }
+
+        // libjpeg version
         {
             auto tstart = std::chrono::high_resolution_clock::now();
             auto compressed_image = compress_image_libjpeg(image);
             escape(compressed_image.buf);
             auto tend = std::chrono::high_resolution_clock::now();
             auto tdiff = tend - tstart;
+
+            auto out_path = path((path("out/libjpeg") / file.parent_path() / file.stem()).string() + std::string(".jpg"));
+
+            std::filesystem::create_directories(out_path.parent_path());
+
+            auto f = fopen(out_path.string().c_str(), "wb");
+
+            fwrite(compressed_image.buf, compressed_image.size, 1, f);
+
+            fclose(f);
+
             std::cout << "libjpeg file: " << file << " time: " << tdiff.count() << '\n';
         }
         i++;
-        fprintf(stderr, "\r%.4f", (double)i / (double)file_list.size() * 100);
+        // dumb progress indicator. Not accurate but it does show that forward
+        // motion is happening which is good
+        fprintf(stderr, "%.4f\n", (double)i / (double)file_list.size() * 100);
     }
 }

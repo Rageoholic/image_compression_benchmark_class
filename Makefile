@@ -8,6 +8,7 @@ CXXFLAGS=-Og -g -std=c++20
 WARNFLAGS=-Wall
 LIBS= jpeg
 LIBFLAGS= $(patsubst %, -l%, $(LIBS))
+
 all: test-bench
 
 include $(DEPS)
